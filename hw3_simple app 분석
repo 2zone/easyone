@@ -1,0 +1,93 @@
+__EXPORT int px4_simple_app_main(int argc, char *argv[]);
+
+int px4_simple_app_main(int argc, char *argv[])
+{
+	PX4_INFO("Hello Sky!");
+
+	int sensor_sub_fd = orb_subscribe(ORB_ID(sensor_combined));
+		// sensor_sub_fd는 sensor_combined 파일, sensor_combined 토픽을 구독한다.
+
+	orb_set_interval(sensor_sub_fd, 200);
+		//sensor_combined 파일의 ORBIOCSETINTERVAL의 속성을 200ms으로 바꾼다. (=5hz)
+
+	struct vehicle_attitude_s att;
+		//자세 정보를 저장할 구조체 att 생성
+
+	memset(&att, 0, sizeof(att));
+		//구조체att를 모두 0으로 만든다 :초기화
+
+	orb_advert_t att_pub = orb_advertise(ORB_ID(vehicle_attitude), &att);
+		//orb advertise :vehicle_attitude 토픽을 발행하기 위한 초기화
+		
+
+	px4_pollfd_struct_t fds[] = {
+		{ .fd = sensor_sub_fd,   .events = POLLIN },
+			//fds[0]는 sensor_sub_fd(sensor combined)
+
+		/* there could be more file descriptors here, in the form like:
+		 * { .fd = other_sub_fd,   .events = POLLIN },
+		 */
+	};
+		//폴 구조체 fds에 sensor_sub_fd 파일 디스크립터와 pollin(입력이벤트를 정의)
+
+	int error_counter = 0;
+
+	for (int i = 0; i < 5; i++) {
+		
+		int poll_ret = px4_poll(fds, 1, 1000);
+			//fds구조체에 정의된 파일 디스크립터로부터 이벤트가 발생하는지 체크,
+			// 1초마다 1개파일 업데이트 하고 타입아웃발생하면 0반환 에러면 -1반환// 
+
+		if (poll_ret == 0) {
+		
+			PX4_ERR("Got no data within a second");
+				//폴 리턴 0이면 '어떤 데이터도 주어지지 않았다'의미	
+
+		} else if (poll_ret < 0) {
+			/* this is seriously bad - should be an emergency */
+			if (error_counter < 10 || error_counter % 50 == 0) {
+				/* use a counter to prevent flooding (and slowing us down) */
+				PX4_ERR("ERROR return value from poll(): %d", poll_ret);
+			}	//폴 리턴 -1이면 "ERROR"의미	
+
+			error_counter++;
+
+		} else {
+
+			if (fds[0].revents & POLLIN) {
+				//첫번째 디스크립터로 부터 이벤트가 발생했다면
+
+				struct sensor_combined_s raw;
+					//sensor_combined메세지를 저장할수 있는 구조체raw 선언
+				
+				orb_copy(ORB_ID(sensor_combined), sensor_sub_fd, &raw);
+					//sensor_sub_fd 로부터 sensor_combined 토픽을 읽어 raw에 저장
+
+				PX4_INFO("Accelerometer:\t%8.4f\t%8.4f\t%8.4f",
+					 (double)raw.accelerometer_m_s2[0],
+					 (double)raw.accelerometer_m_s2[1],
+					 (double)raw.accelerometer_m_s2[2]);
+			
+				/* set att and publish this information for other apps
+				 the following does not have any meaning, it's just an example
+				*/
+
+				att.q[0] = raw.accelerometer_m_s2[0];
+				att.q[1] = raw.accelerometer_m_s2[1];
+				att.q[2] = raw.accelerometer_m_s2[2];
+					//롤가속도 피치가속도 요우가속도 평균
+
+				orb_publish(ORB_ID(vehicle_attitude), att_pub, &att);
+					//vehicle_attitude 토픽에 측정된가속도의 평균값을 발행
+			}
+
+			/* there could be more file descriptors here, in the form like:
+			 * if (fds[1..n].revents & POLLIN) {}
+			 */
+		}
+	}
+
+	PX4_INFO("exiting");
+
+	return 0;
+}

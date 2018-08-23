@@ -1,0 +1,22 @@
+argc, argv 파라미터 (인수; 매개변수)
+		argc는 프로그램을 실행할때 지정해 준 명령행 옵션의 개수를 저장
+		argv는 프로그램을 실행할때 지정해 준 명령행 옵션의 문자열들이 실제로 저장되는 배열
+		옵션을 하나도 입력하지 않았을때 argc는 1이다 .argv[0]는 항상파일명이다. 
+		따라서, 옵션의 정확한 개수는 argc-1이다
+
+
+
+
+
+문자열 비교함수 strcmp (string1,string2)  
+		string1과 stirng2가 같으면 0 
+		string1이 string2보다 작으면 0보다작음
+		string1이 string2보다 크면 0보다 큼
+
+
+
+
+memset 함수 : 어떤 메모리의 시작점으로부터 연속된 범위를 어떤 값으로 모두 지정하고 싶을 때 사용하는 함수
+void memset (void *ptr,int  value, size_t num)
+ptr:채우려는 메모리의 시작주소,  value:메모리에 채우고자하는 값,  num:채우고자하는 메모리 크기
+
